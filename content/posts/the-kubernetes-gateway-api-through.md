@@ -17,9 +17,7 @@ I have recently been building fun little home automation-style projects with the
 
 Thanks for reading x Through Beginner's Eyes! Subscribe for free to receive new posts and support my work.
 
-![](/images/substack/the-kubernetes-gateway-api-through/01-346463b756.jpeg)
-
-Some of the Phillips Hue lights in my office
+{{< figure src="/images/substack/the-kubernetes-gateway-api-through/01-346463b756.jpeg" caption="Some of the Phillips Hue lights in my office" >}}
 
 Well then, what to do to get the dance of colors back? Enter a second microservice, [hueColorLooper](https://github.com/ezebunandu/gohome/tree/main/hueColorLooper) that accepts http requests at a designated endpoint, and puts the lights into colorloop mode. My initial implementation of the project used a cron job on an Ubuntu VM outside of the cluster to make the required http requests using curl daily at 5:35AM. A hacky solution, yes, but it worked!
 
@@ -60,7 +58,7 @@ spec:
 
 We are declaring a ClusterIP type service named **colorlooper-service** that targets pods with the label **app=colorlooper**. This makes it so that from anywhere within the cluster, we can communicate with the application fronted by the service using the provided CLUSTER-IP (10.43.68.61 in my case, as shown in the screenshot below)
 
-![](/images/substack/the-kubernetes-gateway-api-through/02-8bc364a05e.png)
+{{< figure src="/images/substack/the-kubernetes-gateway-api-through/02-8bc364a05e.png" >}}
 
 For our use case — where we want to expose the application so that traffic from the Ubuntu VM that is not part of the cluster can reach it — a ClusterIP alone is not sufficient.
 
@@ -72,9 +70,7 @@ A **LoadBalancer** service is the easiest way of exposing services to external c
 
 An Ingress exposes HTTP and HTTPS routes from outside the cluster to services within the cluster. Traffic routing is controlled by rules defined on the ingress resource. You can think of an ingress as an abstraction that allows re-using the same load balancer for multiple http/https services, using host-based and path-based routing to map connections to the different services. The Ingress model translates ingress rules into configurations that a proxy can understand and execute.
 
-![](/images/substack/the-kubernetes-gateway-api-through/03-87ad27d081.png)
-
-Illustration of an ingress resource, from the Kubernetes documentation at [docs.kubernetes.io](http://docs.kubernetes.io)
+{{< figure src="/images/substack/the-kubernetes-gateway-api-through/03-87ad27d081.png" caption="Illustration of an ingress resource, from the Kubernetes documentation at [docs.kubernetes.io](http://docs.kubernetes.io)" >}}
 
 To utilize an ingress, you must first have an **Ingress Controller** . The Ingress Controller is responsible for ultimately applying routing configurations described via ingress resources to some data plane (e.g. a reverse proxy, a load balancer, etc.). The Ingress resource then defines routing rules that govern how external requests get directed to the service being fronted. Rules can include hostnames, paths, and TLS configurations used to map traffic. As there is no native Ingress controller built into Kubernetes, you must first install one of many optional implementations, such as the **Nginx Ingress Controller**. Once an Ingress Controller is installed, you can then deploy ingress resources to route traffic to the underlying application/service. An example manifest for the Ingress resource used by the **LightScheduler** microservice.
 
@@ -109,9 +105,7 @@ Besides the non-trivial problem of a complicated system of implementation-specif
 
 ### Gateway API: The New Way to Ingress
 
-![](/images/substack/the-kubernetes-gateway-api-through/04-99135c944f.png)
-
-The gateway api project logo, from https://gateway-api.sigs.k8s.io
+{{< figure src="/images/substack/the-kubernetes-gateway-api-through/04-99135c944f.png" caption="The gateway api project logo, from https://gateway-api.sigs.k8s.io" >}}
 
 First introduced at KubeCon 2019 as the **Ingress v2** , the Gateway API was billed at ideation as the next generation of Ingress, load balancing, and service mesh API in Kubernetes. The Gateway API v1.0 was released in November 2023 and sought to address **some of the shortcomings of the Ingress** API that has become obvious over the years, including:
 
@@ -130,9 +124,7 @@ The Gateway API has the following design principles:
 
 The gateway API emphasizes expressiveness and extensibility as core design principles. It introduced a modular structure with distinct roles — infrastructure provider, cluster operator, and app developer. The Gateway API also introduced new controller objects like **GatewayClass** for defining controller capabilities, **Gateway** for instantiating network gateways with those capabilities, and **HTTPRoute** for declaring HTTP routes.
 
-![](/images/substack/the-kubernetes-gateway-api-through/05-2b95b59719.png)
-
-Role-oriented architecture of the Gateway API, courtesy of https://gateway-api.sigs.k8s.io/
+{{< figure src="/images/substack/the-kubernetes-gateway-api-through/05-2b95b59719.png" caption="Role-oriented architecture of the Gateway API, courtesy of https://gateway-api.sigs.k8s.io/" >}}
 
 The infrastructure provider, e.g. AWS, Azure, or GCP makes a GatewayClass resource available to be deployed in clusters hosted on their Infrastructure. For example, for deployments in Amazon EKS, AWS has the [AWS Gateway controller](https://www.gateway-api-controller.eks.aws.dev/dev/concepts/concepts/) that can be used with the amazon-vpc-lattice GatewayClass. Cluster operators will then create a Gateway resource based on this GatewayClass that can be used across all namespaces in the cluster. To enable specific routing rules for their applications, application developers will create a HTTPRoute, TLSRoute, etc. This role-oriented design seeks to strike a balance between distributed flexibility and centralized control, allowing shared infrastructure to be used by many different and non-coordinating teams, all bound by the policies and constraints set by the cluster operators.
 
@@ -187,7 +179,7 @@ This rule routes http traffic with the hostname set to **colorlooper.lab** to th
 
 In the initial implementation, the cronjob on the external VM simply made a request to this endpoint on a schedule.
 
-![](/images/substack/the-kubernetes-gateway-api-through/06-61f92537f2.png)
+{{< figure src="/images/substack/the-kubernetes-gateway-api-through/06-61f92537f2.png" >}}
 
 ### So, What Was the Point, Sam?
 
@@ -197,7 +189,7 @@ The Phillips Hue app on my phone has an **automations** feature that would allow
 
 In the end, I switched from using the cronjob on the VM external to the cluster to using a Kubernetes **CronJob** resource inside of the cluster, which made the need to expose the service externally somewhat unnecessary. Regardless, I had a ton of fun learning about the Gateway API in particular and Kubernetes networking in general and I can say for a fact that I know a little more about these concepts that before — and that, my friends, is the whole point of this enterprise!
 
-![](/images/substack/the-kubernetes-gateway-api-through/07-923abd7320.png)
+{{< figure src="/images/substack/the-kubernetes-gateway-api-through/07-923abd7320.png" >}}
 
 ### References
 

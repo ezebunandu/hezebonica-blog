@@ -19,19 +19,19 @@ For example, on a playground cluster in my homelab, I have deployed the nginx-ga
 
 Thanks for reading x Through Beginner's Eyes! Subscribe for free to receive new posts and support my work.
 
-![](/images/substack/containers-sitting-around-doing-mostly/01-2718fbadf4.png)
+{{< figure src="/images/substack/containers-sitting-around-doing-mostly/01-2718fbadf4.png" >}}
 
 The pod for the gateway is running in the **k3s-worker-02** node. If we connected to the node using ssh or similar protocol and list all pods using crictl, we can filter for the pods related to the nginx-gateway running on the node using `grep`, as below
 
-![](/images/substack/containers-sitting-around-doing-mostly/02-cc55d3349a.png)
+{{< figure src="/images/substack/containers-sitting-around-doing-mostly/02-cc55d3349a.png" >}}
 
 The first column of the command output is the id of the pods. Using the ID of the nginx-gateway container, we can further inspect this container specifically with the `crictl inspect` command and `grep` for parts of the container config related to the word **sandbox**, which is how the [container runtime interface](https://kubernetes.io/blog/2016/12/container-runtime-interface-cri-in-kubernetes/) describes the pause container.
 
-![](/images/substack/containers-sitting-around-doing-mostly/03-d108a00ff2.png)
+{{< figure src="/images/substack/containers-sitting-around-doing-mostly/03-d108a00ff2.png" >}}
 
 And if we dig a little deeper, we find that the sandbox container is running the **docker.io/rancher/mirrorerd-pause:3.6** container image, which is rancher’s mirror of the mysterious pause container, this being a [k3s](https://k3s.io/) cluster.
 
-![](/images/substack/containers-sitting-around-doing-mostly/04-62db7a6b98.png)
+{{< figure src="/images/substack/containers-sitting-around-doing-mostly/04-62db7a6b98.png" >}}
 
 The pause container serves as the “parent container” for all other containers in a pod. Though it spends most of its time sleeping and doing nothing, it serves two important functions; as **the basis of Linux namespace sharing in the pod and serving as process with PID 1 that is responsible for reaping [zombie processes](https://en.wikipedia.org/wiki/Zombie_process)**.
 
@@ -43,7 +43,7 @@ To understand why we need a container that mostly sits around doing nothing to b
 
 A **container** is an abstraction that bundles an application and all its dependencies, isolating the application from the rest of the machine it is running on. The containerized application has everything it needs and it is easy to package up as a **container image** (a zip archive of a filesystem and configuration files) that will run the same on any machine. **[Kubernetes](https://kubernetes.io/docs/concepts/overview/)** is an orchestration system for running containers.
 
-![](/images/substack/containers-sitting-around-doing-mostly/05-9149ebfb2e.png)
+{{< figure src="/images/substack/containers-sitting-around-doing-mostly/05-9149ebfb2e.png" >}}
 
 This classical definition of a container, while not inaccurate, offers little by way of explanation for what containers really are under the hood and what they are made from. For starters, **there’s no such thing as a Linux container, really** — Linux containers are not a thing! Rather, **“containers” are nothing but normal processes that are executed using features of the Linux kernel, including namespaces and cgroups, to create a level of isolation from the underlying host.** If you get shell access to the container and run`ps` you only see the processes that are running inside of the container and running `ip a` or similar command will show the container seeming to have it’s own network stack — network interfaces, ip address space, route tables, etc. All of this is made possible using Linux kernel features, including namespaces!
 
@@ -53,7 +53,7 @@ Namespaces are a feature of **the Linux kernel** that enable the partitioning of
 
 Linux supports several types of namespaces, each designed to isolate a specific set of system resources:
 
-![](/images/substack/containers-sitting-around-doing-mostly/06-3123ad250b.png)
+{{< figure src="/images/substack/containers-sitting-around-doing-mostly/06-3123ad250b.png" >}}
 
 - **Mount (mnt)**: Isolates filesystem mount points, enabling each set of processes to have its own set of visible filesystems.
 - **Process ID (pid)**: Ensures processes in different pid namespaces see distinct sets of process IDs.
@@ -71,73 +71,49 @@ To state it a bit more plainly, if you launch a process in a new network namespa
 
 The figure below illustrates a container running in a separate network namespace and effectively isolated from the network namespace of the Linux host on which it is running. The container and the server will have distinct [iptable](https://www.booleanworld.com/depth-guide-iptables-linux-firewall/) rules and routes. Each will also have a separate loopback interface.
 
-![](/images/substack/containers-sitting-around-doing-mostly/07-1492490e8a.png)
-
-A container will have a network namespace and associated network stack distinct from the host machine.
+{{< figure src="/images/substack/containers-sitting-around-doing-mostly/07-1492490e8a.png" caption="A container will have a network namespace and associated network stack distinct from the host machine." >}}
 
 To demonstrate what this looks like in practice, we will experiment with launching a [bash](https://www.howtouselinux.com/post/what-is-bash-in-linux) process in a separate network namespace on an ubuntu 18.04 virtual machine host in a playground environment.
 
-![](/images/substack/containers-sitting-around-doing-mostly/08-2a4a5b7aa8.png)
-
-Ubuntu 18.04 Playground environment; has only one network namespace owned by PID 1
+{{< figure src="/images/substack/containers-sitting-around-doing-mostly/08-2a4a5b7aa8.png" caption="Ubuntu 18.04 Playground environment; has only one network namespace owned by PID 1" >}}
 
 Looking at the output of running `lsns -t net` command, there is currently only one network namespace on the host and that is owned by the **[init process with PID 1](https://sysadminsage.com/in-linux-what-process-has-the-pid-of-1/)**. To create a process in a new namespace, we use the `unshare` [command](https://www.man7.org/linux/man-pages/man1/unshare.1.html) and pass the `—net` flag to **launch the process in a new network namespace**.
 
-![](/images/substack/containers-sitting-around-doing-mostly/09-321956bf2a.png)
-
-Launching a bash process in its own network namespace with unshare
+{{< figure src="/images/substack/containers-sitting-around-doing-mostly/09-321956bf2a.png" caption="Launching a bash process in its own network namespace with unshare" >}}
 
 The bash process now has it’s own [loopback interface](https://www.baeldung.com/linux/loopback-lo-device) but has no other network interfaces defined. It also has its own [iptable rules](https://en.wikipedia.org/wiki/Iptables) (currently empty), which are linux kernel IP network packet filtering rules. The bash process has no knowledge of the packet filtering rules defined on the host.
 
-![](/images/substack/containers-sitting-around-doing-mostly/10-358ae1981c.png)
+{{< figure src="/images/substack/containers-sitting-around-doing-mostly/10-358ae1981c.png" caption="The bash process (left) starts out with only a loopback interface that is DOWN. Notice that that the host (right) has three interfaces, including its separate loopback and eth0" >}}
 
-The bash process (left) starts out with only a loopback interface that is DOWN. Notice that that the host (right) has three interfaces, including its separate loopback and eth0
-
-![](/images/substack/containers-sitting-around-doing-mostly/11-ce6798129b.png)
-
-Bash process (left) has its own iptable containing no rules, whereas the host (right) has a number of rules, including those for Docker
+{{< figure src="/images/substack/containers-sitting-around-doing-mostly/11-ce6798129b.png" caption="Bash process (left) has its own iptable containing no rules, whereas the host (right) has a number of rules, including those for Docker" >}}
 
 This process is isolated from the network stack on host. To establish connectivity, we need to create a **[virtual ethernet pair](https://www.man7.org/linux/man-pages/man4/veth.4.html)** by specifying the namespace associated with the bash process.
 
 First, we create a virtual Ethernet pair from a separate terminal on the host, using the `ip link add` command. We specify one end of the virtual Ethernet interface device, named `bash-to-host,` to be associated with the process ID of the bash process and the other end, `host-to-bash`, to be associated with the network namespace of the init process (hence the host).
 
-![](/images/substack/containers-sitting-around-doing-mostly/12-30e0ff373a.png)
-
-Creating a new virtual ethernet pair with one end in the net ns with PID 3001 (i.e. the bash process) and the other in the host
+{{< figure src="/images/substack/containers-sitting-around-doing-mostly/12-30e0ff373a.png" caption="Creating a new virtual ethernet pair with one end in the net ns with PID 3001 (i.e. the bash process) and the other in the host" >}}
 
 From within the bash process, we see that a second interface now exists, but is in the **DOWN** state.
 
-![](/images/substack/containers-sitting-around-doing-mostly/13-d36d1b2f4d.png)
-
-New virtual ethernet interface in the bash process in the DOWN state
+{{< figure src="/images/substack/containers-sitting-around-doing-mostly/13-d36d1b2f4d.png" caption="New virtual ethernet interface in the bash process in the DOWN state" >}}
 
 We need to bring the interface on both ends UP.
 
-![](/images/substack/containers-sitting-around-doing-mostly/14-edfd8cdf08.png)
+{{< figure src="/images/substack/containers-sitting-around-doing-mostly/14-edfd8cdf08.png" caption="Setting the “host” end of the virtual Ethernet pair to UP" >}}
 
-Setting the “host” end of the virtual Ethernet pair to UP
-
-![](/images/substack/containers-sitting-around-doing-mostly/15-f76a68319d.png)
-
-Setting the “bash” end of the virtual Ethernet pair UP
+{{< figure src="/images/substack/containers-sitting-around-doing-mostly/15-f76a68319d.png" caption="Setting the “bash” end of the virtual Ethernet pair UP" >}}
 
 In the command output above, the bash-to-host interface on the bash process is now in the **UP** state.
 
 Finally, to send traffic between the bash process and the host, we need to associate an IP address with the interface on both ends.
 
-![](/images/substack/containers-sitting-around-doing-mostly/16-cca6b2e584.png)
+{{< figure src="/images/substack/containers-sitting-around-doing-mostly/16-cca6b2e584.png" caption="Add an IP address to the host end" >}}
 
-Add an IP address to the host end
-
-![](/images/substack/containers-sitting-around-doing-mostly/17-963acc1ac8.png)
-
-Add an IP address to the bash process end as well
+{{< figure src="/images/substack/containers-sitting-around-doing-mostly/17-963acc1ac8.png" caption="Add an IP address to the bash process end as well" >}}
 
 We are now able to send pings from the bash process to the ip address for the host machine and see that packets are being delivered.
 
-![](/images/substack/containers-sitting-around-doing-mostly/18-04d422213a.png)
-
-Ping from bash process to the host IP address; the packets are flowing!
+{{< figure src="/images/substack/containers-sitting-around-doing-mostly/18-04d422213a.png" caption="Ping from bash process to the host IP address; the packets are flowing!" >}}
 
 ### Network Namespaces with Docker
 
@@ -145,9 +121,7 @@ To recap, Linux Namespaces allow the partitioning of system resources and give p
 
 The complicated song and dance we went through for our bash process is effectively what Docker does to isolate a container from the host at the networking layer when we run containers with Docker. In the example below, we start out with only one network namespace owned by the init process, then run an Nginx container with docker. Afterwards, we see a second network namespace has been created and associated with the Nginx container.
 
-![](/images/substack/containers-sitting-around-doing-mostly/19-7e6d5ef23a.png)
-
-Network namespace with Docker
+{{< figure src="/images/substack/containers-sitting-around-doing-mostly/19-7e6d5ef23a.png" caption="Network namespace with Docker" >}}
 
 ### Containers & The Linux Kernel; The Full Story — Abridged Edition
 
@@ -161,47 +135,33 @@ When you run a container from an image, the container runtime unpacks the archiv
 
 When you launch multiple containers on a host machine with Docker or similar container runtime, by default, each container will effectively have its own set of namespaces, and hence its isolated networking stack.
 
-![](/images/substack/containers-sitting-around-doing-mostly/20-345d69d327.png)
-
-Multiple containers with Docker, each having its set of namespaces and isolation
+{{< figure src="/images/substack/containers-sitting-around-doing-mostly/20-345d69d327.png" caption="Multiple containers with Docker, each having its set of namespaces and isolation" >}}
 
 Say, we run two workload containers using the `docker run` command with the respective images for the nginx web server and a containertools image, created by Rory McCune, that wraps many linux tools useful for debugging containers
 
-![](/images/substack/containers-sitting-around-doing-mostly/21-a4fc20235a.png)
-
-Running an nginx and debug container with Docker
+{{< figure src="/images/substack/containers-sitting-around-doing-mostly/21-a4fc20235a.png" caption="Running an nginx and debug container with Docker" >}}
 
 The result of running these two docker commands in sequence is that we have two separate containers, each running in its own network namespace (and hence are isolated).
 
-![](/images/substack/containers-sitting-around-doing-mostly/22-70403fca46.png)
-
-Nginx and debug containers have separate network namespaces and cannot communicate over localhost
+{{< figure src="/images/substack/containers-sitting-around-doing-mostly/22-70403fca46.png" caption="Nginx and debug containers have separate network namespaces and cannot communicate over localhost" >}}
 
 **Docker, however, allows to specifying options to join one container to another container’s network namespace, effectively allowing both containers to communicate over localhost**.
 
 For reasons that will soon become obvious, let us introduce a third container into the mix. We will first start this special ‘pause’ container. For the subsequent containers, we pass command line options to Docker to join the network (—net=container:pause), process id (—pid=container:pause), and interprocess communication namespace (—ipc=container:pause) of the named the pause container.
 
-![](/images/substack/containers-sitting-around-doing-mostly/23-2b74a79c51.png)
-
-Sharing execution context between containers using flags passed to Docker to join a container to existing namespaces
+{{< figure src="/images/substack/containers-sitting-around-doing-mostly/23-2b74a79c51.png" caption="Sharing execution context between containers using flags passed to Docker to join a container to existing namespaces" >}}
 
 In this case all three containers share the same network namespace owned by the special container, as shown below
 
-![](/images/substack/containers-sitting-around-doing-mostly/24-70cc9282b8.png)
-
-The Nginx and debug containers are in the network namespace of the Pause container
+{{< figure src="/images/substack/containers-sitting-around-doing-mostly/24-70cc9282b8.png" caption="The Nginx and debug containers are in the network namespace of the Pause container" >}}
 
 And if we exec to the debug container, we can communicate with the nginx container over localhost, as shown below.
 
-![](/images/substack/containers-sitting-around-doing-mostly/25-c1dc55bd29.png)
-
-Debug container communicating with Nginx over localhost
+{{< figure src="/images/substack/containers-sitting-around-doing-mostly/25-c1dc55bd29.png" caption="Debug container communicating with Nginx over localhost" >}}
 
 We can even see the nginx master process and its child processes from the debug container, demonstrating that all three containers are sharing the same execution context, due to the flags and arguments we passed to Docker.
 
-![](/images/substack/containers-sitting-around-doing-mostly/26-8d6557fa1b.png)
-
-All of the processes in the shared context are visible from the Debug container
+{{< figure src="/images/substack/containers-sitting-around-doing-mostly/26-8d6557fa1b.png" caption="All of the processes in the shared context are visible from the Debug container" >}}
 
 ## Kubernetes Pods and the Need to Share A Network Namespace
 
@@ -215,31 +175,21 @@ Pods may be run as single-container (i.e. one container per pod) or multi-contai
 
 To demonstrate this, let us deploy a Pod with the nginx image and a debugging container, raesene/alpine-containertools, running together, as per the yaml manifest below
 
-![](/images/substack/containers-sitting-around-doing-mostly/27-e081452b3a.png)
-
-Creating a Pod with the Nginx and Debug Containers
+{{< figure src="/images/substack/containers-sitting-around-doing-mostly/27-e081452b3a.png" caption="Creating a Pod with the Nginx and Debug Containers" >}}
 
 Once we have deployed this pod, we can confirm that all two containers in the pod are running and then exec into the debug container.
 
-![](/images/substack/containers-sitting-around-doing-mostly/28-786755cd35.png)
-
-Exec to the debug container after Pod creation.
+{{< figure src="/images/substack/containers-sitting-around-doing-mostly/28-786755cd35.png" caption="Exec to the debug container after Pod creation." >}}
 
 When we run `ps`, we can see all of the processes, including the bash process from our debug container, the nginx master and worker processes and a pause process (more on this in a bit). This is because these processes all exist in the same PID namespace. There is also a single network namespace and all containers share the same hostname.
 
-![](/images/substack/containers-sitting-around-doing-mostly/29-2e1303753f.png)
-
-All the containers in the Pod share execution context
+{{< figure src="/images/substack/containers-sitting-around-doing-mostly/29-2e1303753f.png" caption="All the containers in the Pod share execution context" >}}
 
 Further demonstrating that the containers share the same network namespace, we see that there is a shared loopback and ethernet interface and that we can communicate with the nginx container from the debug container over localhost.
 
-![](/images/substack/containers-sitting-around-doing-mostly/30-b31a2ac83f.png)
+{{< figure src="/images/substack/containers-sitting-around-doing-mostly/30-b31a2ac83f.png" caption="Single network stack shared between the containers in the Pod" >}}
 
-Single network stack shared between the containers in the Pod
-
-![](/images/substack/containers-sitting-around-doing-mostly/31-0a122a1caf.png)
-
-The Debug container communicating with Nginx over localhost
+{{< figure src="/images/substack/containers-sitting-around-doing-mostly/31-0a122a1caf.png" caption="The Debug container communicating with Nginx over localhost" >}}
 
 How does this sharing of context work though? I bet you’re already thinking that perhaps Linux namespaces might be at play here!
 
@@ -261,15 +211,11 @@ When creating a Pod, the [kubelet](https://kubernetes.io/docs/reference/command-
 
 Part of the fun of learning about open source system is that you can look at the source code to see how things are actually implemented, so as the final step in our adventure with the pause container, let’s take a look at the source code on the [kubernetes github repository](https://github.com/kubernetes/kubernetes/blob/master/build/pause/linux/pause.c). The pause container is part of the other 6 files in the entire Kubernetes repository which contains C code. The repository is mostly Go code.
 
-![](/images/substack/containers-sitting-around-doing-mostly/32-e8218643d3.png)
-
-Kubernetes repo is mostly Go, but there’s some C code, including for the pause container
+{{< figure src="/images/substack/containers-sitting-around-doing-mostly/32-e8218643d3.png" caption="Kubernetes repo is mostly Go, but there’s some C code, including for the pause container" >}}
 
 [The implementation of the pause](https://github.com/kubernetes/kubernetes/blob/master/build/pause/linux/pause.c) is fairly simple, representing only 68 lines of text, including 15 license of copyright verbiage. The entrypoint or main function for pause.c is shown below
 
-![](/images/substack/containers-sitting-around-doing-mostly/33-319fc246af.png)
-
-The entrypoint function for pause.c
+{{< figure src="/images/substack/containers-sitting-around-doing-mostly/33-319fc246af.png" caption="The entrypoint function for pause.c" >}}
 
 In lines 43 - 49, the function processes the command line argument that are passed to the process and if finds a `-v` argument, it prints aversion information to stdout and terminates gracefully.
 
@@ -298,9 +244,7 @@ If the pause process is not running as process id 1, it will print a warning mes
 
 Below is the implementation of the **sigdown** and **sigreap** functions that form part of the signal handling. In the case of a **SIGCHILD**, the pause process calls **waitpid** inside of a while loop to reap any zombies when child processes exit (lines 37 - 40)
 
-![](/images/substack/containers-sitting-around-doing-mostly/34-3275c935f5.png)
-
-sigdown and sigreap functions from pause.c
+{{< figure src="/images/substack/containers-sitting-around-doing-mostly/34-3275c935f5.png" caption="sigdown and sigreap functions from pause.c" >}}
 
 If no signal are received, the process goes into a pause state inside of an infinite loop and if anything happens to terminate the loop, it prints an error to stdout and returns 42, which is the answer to all that is right and wrong with the world in 2025 (lines 64 - 67)
 

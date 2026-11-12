@@ -28,7 +28,7 @@ After some brainstorming with my colleagues Nick and James, I settled on the fol
 - **Sunrise CronJob** (**single responsibility):** turns light off at sunrise by communicating with the Hue Bridge
 - **Sunset CronJob** (**single responsibility):** turns light on at sunset
 
-![](/images/substack/k8s-turn-on-the-light/01-5abf5051e0.png)
+{{< figure src="/images/substack/k8s-turn-on-the-light/01-5abf5051e0.png" >}}
 
 Naturally, all of this monstrosity would be written in Go! But what are Kubernetes Cronjobs in the first place? Why might they even be a workable solution to the problem at hand?
 
@@ -38,15 +38,11 @@ Like its Unix equivalent, a [Kubernetes CronJob](https://kubernetes.io/docs/conc
 
 The snippet below shows part of [the YAML manifest for the Scheduler CronJob](https://github.com/ezebunandu/gohome/blob/28daf285ba61c7ff057b0cdcec628fbe672c873b/hueScheduleWithOWM/k8s/all.yaml#L37). It is scheduled to run at 2 AM Mountain Time or 9 AM UTC (line 41). The `image` in the `containers` section of the spec (line 57) is a reference to an image hosted in my homelab private container registry. When the job runs, it creates a container (process) using [the image’s entrypoint](https://github.com/ezebunandu/gohome/blob/60f51a34dbf79dc9ba0bd4ac41337ae7605577a9/hueScheduleWithOWM/scheduler.Dockerfile#L28) and [any arguments passed to it](https://github.com/ezebunandu/gohome/blob/60f51a34dbf79dc9ba0bd4ac41337ae7605577a9/hueScheduleWithOWM/k8s/all.yaml#L62).
 
-![](/images/substack/k8s-turn-on-the-light/02-bbec88f16c.png)
-
-YAML manifest for the Scheduler CronJob
+{{< figure src="/images/substack/k8s-turn-on-the-light/02-bbec88f16c.png" caption="YAML manifest for the Scheduler CronJob" >}}
 
 Similarly, [Sunrise](https://github.com/ezebunandu/gohome/blob/28daf285ba61c7ff057b0cdcec628fbe672c873b/hueScheduleWithOWM/k8s/all.yaml#L81) and [Sunset](https://github.com/ezebunandu/gohome/blob/28daf285ba61c7ff057b0cdcec628fbe672c873b/hueScheduleWithOWM/k8s/all.yaml#L125) are configured with default execution times and based on [their own container images](https://github.com/ezebunandu/gohome/blob/main/hueScheduleWithOWM/sunset.Dockerfile). However, each successful execution of the Scheduler CronJob modifies the execution time of the Sunrise and Sunset jobs according to the day’s weather forecast.
 
-![](/images/substack/k8s-turn-on-the-light/03-7b62edaaf4.png)
-
-YAML manifest for the Sunrise CronJob
+{{< figure src="/images/substack/k8s-turn-on-the-light/03-7b62edaaf4.png" caption="YAML manifest for the Sunrise CronJob" >}}
 
 How come the Scheduler Cronjob has the ability to modify the execution schedule of the other cronjob? It sounds rather insecure for one resource to be able to “mutate” another in this way without being specifically configured to be able to do so.
 
@@ -56,15 +52,11 @@ So, here’s the challenge. We want to enable one CronJob to be able to modify t
 
 The first step is to assign a [Service Account](https://kubernetes.io/docs/concepts/security/service-accounts/) to the Job’s container. This service account gives it a unique identity. The snippet below shows part of [the manifest](https://github.com/ezebunandu/gohome/blob/28daf285ba61c7ff057b0cdcec628fbe672c873b/hueScheduleWithOWM/k8s/all.yaml#L1) for the `schedule-cronjobs` service account.
 
-![](/images/substack/k8s-turn-on-the-light/04-e675b9c0d0.png)
-
-YAML manifest for the service account
+{{< figure src="/images/substack/k8s-turn-on-the-light/04-e675b9c0d0.png" caption="YAML manifest for the service account" >}}
 
 In the manifest for the CronJob, we specify that it should use this service account by assigning to the `spec.serviceAccountName` (line 54).
 
-![](/images/substack/k8s-turn-on-the-light/05-fff3f1b597.png)
-
-Configuring the Scheduler CronJob to use the service account
+{{< figure src="/images/substack/k8s-turn-on-the-light/05-fff3f1b597.png" caption="Configuring the Scheduler CronJob to use the service account" >}}
 
 But we haven’t assigned any permissions yet. Surely there must be more to do. Service accounts by themselves are merely identities and do not necessarily grant any permissions. To assign permissions, we need to create a Role or ClusterRole and bind it to the service account. What are Roles and ClusterRoles and when might we choose one versus the other?
 
@@ -74,9 +66,7 @@ The Kubernetes RBAC API declares four kinds of objects: **Role**, **ClusterRole*
 
 For our use case so we will assign permissions with a Role to keep them scoped to a single namespace. The [YAML snippets for the role](https://github.com/ezebunandu/gohome/blob/28daf285ba61c7ff057b0cdcec628fbe672c873b/hueScheduleWithOWM/k8s/all.yaml#L6) is shown below.
 
-![](/images/substack/k8s-turn-on-the-light/06-265154ccfc.png)
-
-YAML manifest for the role; notice the rules block with apiGroups, resources, and verbs
+{{< figure src="/images/substack/k8s-turn-on-the-light/06-265154ccfc.png" caption="YAML manifest for the role; notice the rules block with apiGroups, resources, and verbs" >}}
 
 Notice that the rules block of the Role has references to apiGroups, resources, resourceNames and verbs. You can think of these as a way of defining the where, what, and how of the permissions to be assigned.
 
@@ -84,9 +74,7 @@ Specifically, the rule grants permissions to the `batch` API (line 12 - 13), hen
 
 Finally, the role is bound to the service account using the RoleBinding shown in [the snippet below](https://github.com/ezebunandu/gohome/blob/28daf285ba61c7ff057b0cdcec628fbe672c873b/hueScheduleWithOWM/k8s/all.yaml#L25).
 
-![](/images/substack/k8s-turn-on-the-light/07-ab9bc9c8a3.png)
-
-Binding the Role to the Service Account using a RoleBinding
+{{< figure src="/images/substack/k8s-turn-on-the-light/07-ab9bc9c8a3.png" caption="Binding the Role to the Service Account using a RoleBinding" >}}
 
 ## The Doing of Deeds
 
@@ -96,21 +84,15 @@ The Kubernetes [API server](https://kubernetes.io/docs/concepts/architecture/#ku
 
 The Scheduler Cronjob’s interacts with the cluster, as defined in [pkg/scheduler/scheduler.go](https://github.com/ezebunandu/gohome/blob/main/hueScheduleWithOWM/pkg/scheduler/scheduler.go), using abstractions provided by the client-go library. The `Scheduler` struct represents an instance of the Scheduler. The struct’s factory function, NewScheduler (line 19), configures each new scheduler instance to use the service account by specifying `rest.inClusterConfig` (line 21).
 
-![](/images/substack/k8s-turn-on-the-light/08-26cbf881a6.png)
-
-Configuring the Scheduler Go object’s client to use the service account
+{{< figure src="/images/substack/k8s-turn-on-the-light/08-26cbf881a6.png" caption="Configuring the Scheduler Go object’s client to use the service account" >}}
 
 The [ModifyCronJobExecution](https://github.com/ezebunandu/gohome/blob/28daf285ba61c7ff057b0cdcec628fbe672c873b/hueScheduleWithOWM/pkg/scheduler/scheduler.go#L40) method on this struct (line 39) is where the actual modification of the execution time is accomplished. This method accepts a cronjob name and a schedule (in cron syntax) and will modify the schedule of the specified CronJob name, provided there is a match (lines 42 - 54).
 
-![](/images/substack/k8s-turn-on-the-light/09-3b2b703b7b.png)
-
-Modifying a CronJob’s execution time using a method on the Scheduler struct
+{{< figure src="/images/substack/k8s-turn-on-the-light/09-3b2b703b7b.png" caption="Modifying a CronJob’s execution time using a method on the Scheduler struct" >}}
 
 The entrypoint for the scheduler binary is the `main` function in [/cmd/scheduler/main.go](https://github.com/ezebunandu/gohome/blob/main/hueScheduleWithOWM/cmd/scheduler/main.go). After fetching the forecast sunrise and sunset times from Openweathermap, a [helper function UnixToCron](https://github.com/ezebunandu/gohome/blob/28daf285ba61c7ff057b0cdcec628fbe672c873b/hueScheduleWithOWM/pkg/weather/weather.go#L37) converts the forecast to cron syntax (lines 33 - 35). It then instantiates a Scheduler (line 40 - 44), and calls the ModifyCronJobExecution for the Sunrise and Sunset CronJobs, respectively (lines 50 - 60).
 
-![](/images/substack/k8s-turn-on-the-light/10-bec3c78724.png)
-
-The scheduler binary’s main loop
+{{< figure src="/images/substack/k8s-turn-on-the-light/10-bec3c78724.png" caption="The scheduler binary’s main loop" >}}
 
 ## Confessions and Conclusions
 
