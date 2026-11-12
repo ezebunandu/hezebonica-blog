@@ -47,13 +47,24 @@ Set `draft = false` when the post is ready to publish.
 
 ## Publishing workflow
 
+The `main` branch is protected by a GitHub ruleset named `Protect main`. Production deploys happen from `main`, so publish through pull requests rather than direct pushes.
+
 1. Create a branch.
 2. Add or edit Markdown content.
 3. Preview locally with `hugo server --buildDrafts`.
 4. Open a pull request.
-5. Review the Cloudflare Pages preview deployment.
-6. Merge to `main`.
-7. Cloudflare Pages deploys production to `blog.hezebonica.ca`.
+5. Wait for the required `Cloudflare Pages` status check to pass.
+6. Review the Cloudflare Pages preview deployment.
+7. Merge to `main`.
+8. Cloudflare Pages deploys production to `blog.hezebonica.ca`.
+
+Current `main` branch guardrails:
+
+- Pull request required before merging.
+- `Cloudflare Pages` status check required.
+- Branch deletion blocked.
+- Force pushes blocked.
+- Branches do not need to be up to date before merging.
 
 ## Cloudflare Pages settings
 
