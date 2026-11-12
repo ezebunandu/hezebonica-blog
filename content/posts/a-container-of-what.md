@@ -19,53 +19,35 @@ If you are familiar with containers, then you’ve probably heard them described
 
 A container image is an [archive](https://en.wikipedia.org/wiki/Archive_file) bundle of zip files and metadata arranged in a specific way[2](#footnote-2). To demonstrate what this means in practice, let’s examine [the image for the Grafana visualization tool](https://hub.docker.com/r/grafana/grafana-oss). Grafana is an open source analytics and interactive visualization application that can be deployed as a container. The `docker pull` command pulls down the image from [DockerHub.](https://hub.docker.com/) We then use [Skopeo](https://github.com/containers/skopeo)[3](#footnote-3), an open-source command line tool, to convert the image to the [Open Container Image (OCI) format](https://opencontainers.org/posts/blog/2024-03-13-image-and-distribution-1-1/). [4](#footnote-4)
 
-![](/images/substack/a-container-of-what/01-801eca2360.png)
-
-Using docker to pull the grafana/grafana image and converting it to OCI format using skopeo
+{{< figure src="/images/substack/a-container-of-what/01-801eca2360.png" caption="Using docker to pull the grafana/grafana image and converting it to OCI format using skopeo" >}}
 
 In OCI format, the container image consists of a couple of text files and a directory of blobs.
 
-![](/images/substack/a-container-of-what/02-e0f75580d2.png)
-
-Directory listing of the oci image format produced by Skopeo
+{{< figure src="/images/substack/a-container-of-what/02-e0f75580d2.png" caption="Directory listing of the oci image format produced by Skopeo" >}}
 
 oci-layout is a JSON file. Its content identifies the image layout as version 1.0.0 of [the OCI Image Layout Specification](https://specs.opencontainers.org/image-spec/image-layout/). Index.json file is also a JSON file and contains information pointing to other parts of the image as defined in the OCI Image Layout spec. The manifest entry in **index.json** points to an image manifest by its sha256 hash (digest). Let’s see if we can find the actual manifest file using this hash.
 
-![](/images/substack/a-container-of-what/03-78d2cd8d9b.png)
-
-JSON contents of the oci-layout and index.json files
+{{< figure src="/images/substack/a-container-of-what/03-78d2cd8d9b.png" caption="JSON contents of the oci-layout and index.json files" >}}
 
 Inside of the blobs directory, there is a single subfolder, sha256. The files in this subfolder are named by the sha256 hash of their contents.
 
-![](/images/substack/a-container-of-what/04-1c5bee3c7a.png)
+{{< figure src="/images/substack/a-container-of-what/04-1c5bee3c7a.png" caption="Files in the sha256 subfolder inside the blobs directory" >}}
 
-Files in the sha256 subfolder inside the blobs directory
-
-![](/images/substack/a-container-of-what/05-7a900551dc.png)
-
-Each file in the sha256 directory is named by the hash of its contents
+{{< figure src="/images/substack/a-container-of-what/05-7a900551dc.png" caption="Each file in the sha256 directory is named by the hash of its contents" >}}
 
 The digest of the manifest in **index.json** (**manifest.digest**) corresponds to one of the files in the sha256 directory (**blobs/sha256/**). Viola! This is the image manifest. This file is JSON and refers to an OCI image config file (**config.digest**), as well as an array of **layers**, each of which is a **tar gzip**[5](#footnote-5).
 
-![](/images/substack/a-container-of-what/06-fb4cbad001.png)
-
-The contents of the mainfest, including the image config and layers
+{{< figure src="/images/substack/a-container-of-what/06-fb4cbad001.png" caption="The contents of the mainfest, including the image config and layers" >}}
 
 The OCI image config contains the default configuration options for running the Grafana application container. This includes the user, exposed ports, environment variables, entrypoint, and reference to a root file system. You can already infer a lot about the default runtime behaviour of Grafana by looking at this file.
 
-![](/images/substack/a-container-of-what/07-e61f8139ca.png)
-
-The image config file includes the default configuration options for the Grafana application
+{{< figure src="/images/substack/a-container-of-what/07-e61f8139ca.png" caption="The image config file includes the default configuration options for the Grafana application" >}}
 
 Each layer in the manifest corresponds to one of the files in the blobs directory. The contents of the first layer with sha256 hash of 9824c27, seem to be a complete Alpine Linux filesystem. This layer is the **base image**.
 
-![](/images/substack/a-container-of-what/08-707710d7e0.png)
+{{< figure src="/images/substack/a-container-of-what/08-707710d7e0.png" caption="The first layer is a gzip file that seems to be a complete Alpine Linux filesystem zipped up" >}}
 
-The first layer is a gzip file that seems to be a complete Alpine Linux filesystem zipped up
-
-![](/images/substack/a-container-of-what/09-2a6d3d2164.png)
-
-Parts of the filesystem in the base Alpine Linux image
+{{< figure src="/images/substack/a-container-of-what/09-2a6d3d2164.png" caption="Parts of the filesystem in the base Alpine Linux image" >}}
 
 Where do these layers come from and how did they get into the image? Perhaps, we should build a Grafana image of our own in search for clues!.
 
@@ -75,21 +57,15 @@ The layers in a container image come from the way images are built. The most pop
 
 Let’s build a Grafana container image using [the Dockerfile from the public repository](https://github.com/grafana/grafana). After cloning the repository locally, we build the image from the Dockerfile by running the `docker build` command. Passing the `-t` flag gives the container image a specific name, **grafana-my-build**, to allow us to easily identify it afterwards.
 
-![](/images/substack/a-container-of-what/10-3a561b19ac.png)
-
-Building a Grafana image from the repository’s Dockerfile using Docker build
+{{< figure src="/images/substack/a-container-of-what/10-3a561b19ac.png" caption="Building a Grafana image from the repository’s Dockerfile using Docker build" >}}
 
 As Docker builds the image, each [directive](https://docs.docker.com/reference/dockerfile/) in the Dockerfile either modifies the filesystem or the configuration[6](#footnote-6). The log output from the build shows each step on a separate log line that also includes the amount of time the step takes to complete. A directive that modifies the filesystem will add a new layer to the image and will take longer to complete, on average.
 
-![](/images/substack/a-container-of-what/11-300886e050.png)
-
-The Grafana image after the build with a custom name
+{{< figure src="/images/substack/a-container-of-what/11-300886e050.png" caption="The Grafana image after the build with a custom name" >}}
 
 If we ran an instance of the image and connected a shell to it with the `docker exec` command, we see a unified filesystem that looks like a typical Linux filesystem, despite the image being composed of multiple layers. How do all the layers in the image get squished into a unified filesystem at runtime? Time to introduce overlay filesystems in Linux!
 
-![](/images/substack/a-container-of-what/12-e270a761db.png)
-
-Running and connecting to the container; we are presented with a unified filesystem
+{{< figure src="/images/substack/a-container-of-what/12-e270a761db.png" caption="Running and connecting to the container; we are presented with a unified filesystem" >}}
 
 ## Layering On With Overlay Filesystems
 
@@ -101,39 +77,27 @@ The **lowerdir** is a **read-only** base layer containing the original files and
 
 Let’s see overlay filesystems in action by creating one on a Linux host. We first create four directories in the **/tmp** folder and then write some text file to both the upper and lower directories.
 
-![](/images/substack/a-container-of-what/13-8faf49a731.png)
-
-Creating directories in /tmp and writing some text to files
+{{< figure src="/images/substack/a-container-of-what/13-8faf49a731.png" caption="Creating directories in /tmp and writing some text to files" >}}
 
 We then run the `mount` command with the `-t overlay` option to create an overlay filesystem. Afterwards, **/tmp/mount/** contains the merged content of the upper and lower directories. There’s one each of the files that exist in only the upper and lower directory, but also one copy of the **in\_both.txt** file that was written to both directories.
 
-![](/images/substack/a-container-of-what/14-693f0dcc2d.png)
-
-Create an overlay filesystem at /tmp/mount and list its contents
+{{< figure src="/images/substack/a-container-of-what/14-693f0dcc2d.png" caption="Create an overlay filesystem at /tmp/mount and list its contents" >}}
 
 /**tmp/mount/in\_both.txt** contains the text from /**tmp/upper/in\_both.txt.** The mount filesystem has overlaid the contents of the upper directory on top of the lower directory.
 
-![](/images/substack/a-container-of-what/15-3bd83ffdab.png)
-
-In\_both.txt is the overlay of the upper directory over the lower directory
+{{< figure src="/images/substack/a-container-of-what/15-3bd83ffdab.png" caption="In\\_both.txt is the overlay of the upper directory over the lower directory" >}}
 
 Any changes made to the mount directory are actually made in the upper directory. For example, if we create a new file in **/tmp/mount**, it is actually created in **/tmp/upper**
 
-![](/images/substack/a-container-of-what/16-6f861bdec2.png)
-
-Creating a new file in /tmp/mount actually creates it in /tmp/upper
+{{< figure src="/images/substack/a-container-of-what/16-6f861bdec2.png" caption="Creating a new file in /tmp/mount actually creates it in /tmp/upper" >}}
 
 This also works similarly for deletions. Any deletions we make are made in the upper directory but the lower directory remains unchanged. Deleting /**tmp/mount/in\_both.txt** merely adds a deletion marker to **/tmp/upper/,** but **/tmp/lower/in\_both.txt** remains unchanged.
 
-![](/images/substack/a-container-of-what/17-b3054a8487.png)
-
-Deleting a file does not affect the lower directory
+{{< figure src="/images/substack/a-container-of-what/17-b3054a8487.png" caption="Deleting a file does not affect the lower directory" >}}
 
 Multiple overlay filesystems can share the same lower layers with separate upper layers where changes are made without cascading down to the lower layers. To demonstrate this, we create a new overlay filesystem using **/tmp/lower** along with a new upper directory, **/tmp/upper2**. In this case the contents of **/tmp/mount2/in\_both.txt** is from **/tmp/lower/in\_both.txt** The deletion made to **/tmp/mount/in\_both.txt** has not affected it.
 
-![](/images/substack/a-container-of-what/18-2067538ba9.png)
-
-Reusing lower layers between two filesystems
+{{< figure src="/images/substack/a-container-of-what/18-2067538ba9.png" caption="Reusing lower layers between two filesystems" >}}
 
 This ability to share lower layers between multiple filesystems allows the efficient re-use of layers between container images without each image needing a separate copy of every layer.
 
@@ -143,15 +107,15 @@ So, here’s what we know so far — container images are a zip of zips and imag
 
 The `docker run` command will run the container. We can then probe into it using the `docker inspect` command.
 
-![](/images/substack/a-container-of-what/19-4b7b9b6176.png)
+{{< figure src="/images/substack/a-container-of-what/19-4b7b9b6176.png" >}}
 
 `Docker inspect` returns various low-level information on Docker objects. In this case, we are inspecting a running container. The Docker engine has a **graphdriver** that manages how the layers in an image are combined at runtime. We can ask the graphdriver about the layers it has combined by querying the `GraphDriver.Data.MergedDir` field of the output.
 
-![](/images/substack/a-container-of-what/20-4fc747eda2.png)
+{{< figure src="/images/substack/a-container-of-what/20-4fc747eda2.png" >}}
 
 The **graphdriver** reports that 11 layers of lowerdir been combined with the upperdir. The graphdriver also reports on the location of the layers on the host. If we start a new instance of the container, we see that the exact same locations on the host are being re-used as the layers of the lowerdir, but that each container has its own upperdir where changes are made.
 
-![](/images/substack/a-container-of-what/21-f2cfa745f2.png)
+{{< figure src="/images/substack/a-container-of-what/21-f2cfa745f2.png" >}}
 
 ## So What ?
 
