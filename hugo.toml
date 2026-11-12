@@ -1,0 +1,49 @@
+baseURL = "https://blog.hezebonica.ca/"
+locale = "en-CA"
+title = "Sam Ezebunandu"
+theme = "PaperMod"
+enableRobotsTXT = true
+
+[pagination]
+pagerSize = 10
+
+[params]
+env = "production"
+description = "Technical notes and essays from Sam Ezebunandu on security, Go, distributed systems, Kubernetes, and related experiments."
+author = "Sam Ezebunandu"
+defaultTheme = "auto"
+ShowReadingTime = true
+ShowPostNavLinks = true
+ShowCodeCopyButtons = true
+ShowBreadCrumbs = true
+ShowRssButtonInSectionTermList = true
+
+[params.homeInfoParams]
+Title = "Sam Ezebunandu"
+Content = "Engineer in Calgary, Alberta. I write about security engineering, Go, distributed systems, Kubernetes, CI/CD supply-chain security, and experiments from the edges of my interests — including embedded systems, automation, and learning Rust."
+
+[[params.socialIcons]]
+name = "github"
+url = "https://github.com/ezebunandu"
+
+[[params.socialIcons]]
+name = "linkedin"
+url = "https://www.linkedin.com/in/sam-ezebunandu/"
+
+[[menu.main]]
+identifier = "posts"
+name = "Posts"
+url = "/posts/"
+weight = 10
+
+[[menu.main]]
+identifier = "about"
+name = "About"
+url = "/about/"
+weight = 20
+
+[[menu.main]]
+identifier = "tags"
+name = "Tags"
+url = "/tags/"
+weight = 30

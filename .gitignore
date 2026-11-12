@@ -1,0 +1,7 @@
+# Hugo build output
+/public/
+/resources/_gen/
+
+# Local caches
+.hugo_build.lock
+.DS_Store
