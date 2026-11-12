@@ -57,12 +57,15 @@ Set `draft = false` when the post is ready to publish.
 
 ## Cloudflare Pages settings
 
-Intended project settings:
+Project settings:
 
 - Production branch: `main`
 - Build command: `hugo --gc --minify`
 - Build output directory: `public`
-- Hugo version: set `HUGO_VERSION` in Cloudflare Pages if the default is too old
+- Environment variable: `HUGO_VERSION=0.169.0`
+- Custom domain: `blog.hezebonica.ca`
+
+Cloudflare's default Hugo version may be older than PaperMod requires, so keep `HUGO_VERSION` pinned in both production and preview environments.
 
 ## Licensing
 
